@@ -2,11 +2,12 @@ package lib
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/golang/glog"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 func (bav *UtxoView) _getBalanceEntryForHODLerPKIDAndCreatorPKID(
@@ -470,6 +471,7 @@ func (bav *UtxoView) HelpConnectCoinTransfer(
 	// TODO(DELETEME): Get rid of this once HyperSync is here.
 	var previousDiamondPostEntry *PostEntry
 	var previousDiamondEntry *DiamondEntry
+	var diamonds []*DiamondEntry
 	if !isDAOCoin {
 		// If this creator coin transfer has diamonds, validate them and do the connection.
 		diamondPostHashBytes, hasDiamondPostHash := txn.ExtraData[DiamondPostHashKey]
@@ -550,6 +552,7 @@ func (bav *UtxoView) HelpConnectCoinTransfer(
 
 			// Now set the diamond entry mappings on the view so they are flushed to the DB.
 			bav._setDiamondEntryMappings(newDiamondEntry)
+			diamonds = append(diamonds, newDiamondEntry)
 		}
 	}
 
@@ -562,6 +565,16 @@ func (bav *UtxoView) HelpConnectCoinTransfer(
 	} else {
 		opType = OperationTypeCreatorCoinTransfer
 	}
+	var balances []*BalanceEntry
+	balances = append(balances, senderBalanceEntry)
+	balances = append(balances, receiverBalanceEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Balances: balances,
+		Diamonds: diamonds,
+	})
+
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		Type:                     opType,
 		PrevSenderBalanceEntry:   &prevSenderBalanceEntry,

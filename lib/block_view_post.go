@@ -1063,6 +1063,12 @@ func (bav *UtxoView) _connectSubmitPost(
 		bav._setRepostEntryMappings(newRepostEntry)
 	}
 
+	var posts []*PostEntry
+	posts = append(posts, newPostEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID: txn.Hash(),
+		Posts: posts,
+	})
 	// Add an operation to the list at the end indicating we've added a post.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		// PrevPostEntry should generally be nil when we created a new post from

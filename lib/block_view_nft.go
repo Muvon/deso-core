@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/golang/glog"
-	"github.com/pkg/errors"
 	"math"
 	"math/big"
 	"reflect"
 	"sort"
+
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/golang/glog"
+	"github.com/pkg/errors"
 )
 
 func (bav *UtxoView) _setNFTEntryMappings(nftEntry *NFTEntry) {
@@ -713,6 +714,7 @@ func (bav *UtxoView) _connectCreateNFT(
 	}
 
 	// Add the appropriate NFT entries.
+	var nfts []*NFTEntry
 	for ii := uint64(1); ii <= txMeta.NumCopies; ii++ {
 		nftEntry := &NFTEntry{
 			OwnerPKID:         posterPKID.PKID,
@@ -725,7 +727,17 @@ func (bav *UtxoView) _connectCreateNFT(
 			ExtraData:         extraData,
 		}
 		bav._setNFTEntryMappings(nftEntry)
+		nfts = append(nfts, nftEntry)
 	}
+
+	var posts []*PostEntry
+	posts = append(posts, postEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:  txn.Hash(),
+		Posts: posts,
+		NFTs:  nfts,
+	})
 
 	// Add an operation to the utxoOps list indicating we've created an NFT.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
@@ -854,12 +866,14 @@ func (bav *UtxoView) _connectUpdateNFT(
 	bav._setNFTEntryMappings(newNFTEntry)
 
 	// If we are going from ForSale->NotForSale, delete all the NFTBidEntries for this NFT.
+	var bids []*NFTBidEntry
 	deletedBidEntries := []*NFTBidEntry{}
 	if prevNFTEntry.IsForSale && !txMeta.IsForSale {
 		bidEntries := bav.GetAllNFTBidEntries(txMeta.NFTPostHash, txMeta.SerialNumber)
 		for _, bidEntry := range bidEntries {
 			deletedBidEntries = append(deletedBidEntries, bidEntry)
 			bav._deleteNFTBidEntryMappings(bidEntry)
+			bids = append(bids, bidEntry)
 		}
 	}
 
@@ -878,6 +892,14 @@ func (bav *UtxoView) _connectUpdateNFT(
 
 	// Set the new postEntry.
 	bav._setPostEntryMappings(postEntry)
+
+	var nfts []*NFTEntry
+	nfts = append(nfts, newNFTEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID: txn.Hash(),
+		NFTs: nfts,
+		Bids: bids,
+	})
 
 	// Add an operation to the list at the end indicating we've connected an NFT update.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{

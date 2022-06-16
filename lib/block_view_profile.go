@@ -3,6 +3,10 @@ package lib
 import (
 	"encoding/hex"
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -10,9 +14,6 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
-	"reflect"
-	"sort"
-	"strings"
 )
 
 // Just fetch all the profiles from the db and join them with all the profiles
@@ -781,6 +782,13 @@ func (bav *UtxoView) _connectUpdateProfile(
 		bav._deleteProfileEntryMappings(prevProfileEntry)
 	}
 
+	var profiles []*ProfileEntry
+	profiles = append(profiles, &newProfileEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Profiles: profiles,
+	})
+
 	// Save the profile entry now that we've updated it or created it from scratch.
 	bav._setProfileEntryMappings(&newProfileEntry)
 
@@ -924,6 +932,14 @@ func (bav *UtxoView) _connectSwapIdentity(
 	if toProfileEntry != nil {
 		toNanos = toProfileEntry.CreatorCoinEntry.DeSoLockedNanos
 	}
+
+	var profiles []*ProfileEntry
+	profiles = append(profiles, fromProfileEntry)
+	profiles = append(profiles, toProfileEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Profiles: profiles,
+	})
 
 	// Add an operation to the list at the end indicating we've swapped identities.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{

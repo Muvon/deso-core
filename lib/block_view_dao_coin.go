@@ -2,10 +2,11 @@ package lib
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/holiman/uint256"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 func (bav *UtxoView) GetDAOCoinBalanceEntryForHODLerPubKeyAndCreatorPubKey(
@@ -427,6 +428,18 @@ func (bav *UtxoView) HelpConnectDAOCoinMint(
 		bav._setProfileEntryMappings(creatorProfileEntry)
 	}
 
+	var balances []*BalanceEntry
+	balances = append(balances, profileOwnerBalanceEntry)
+
+	var coins []*CoinEntry
+	coins = append(coins, &creatorProfileEntry.DAOCoinEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Balances: balances,
+		Coins:    coins,
+	})
+
 	// Add an operation to the list at the end indicating we've executed a
 	// DAOCoin txn. Save the previous state of the CreatorCoinEntry for easy
 	// reversion during disconnect.
@@ -517,6 +530,18 @@ func (bav *UtxoView) HelpConnectDAOCoinBurn(
 	}
 	bav._setProfileEntryMappings(creatorProfileEntry)
 
+	var balances []*BalanceEntry
+	balances = append(balances, burnerBalanceEntry)
+
+	var coins []*CoinEntry
+	coins = append(coins, &creatorProfileEntry.DAOCoinEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Balances: balances,
+		Coins:    coins,
+	})
+
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		Type:                       OperationTypeDAOCoin,
 		PrevCoinEntry:              &prevCoinEntry,
@@ -553,6 +578,14 @@ func (bav *UtxoView) HelpConnectDAOCoinDisableMinting(
 	creatorProfileEntry.DAOCoinEntry.MintingDisabled = true
 
 	bav._setProfileEntryMappings(creatorProfileEntry)
+
+	var coins []*CoinEntry
+	coins = append(coins, &creatorProfileEntry.DAOCoinEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:  txn.Hash(),
+		Coins: coins,
+	})
 
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		Type:          OperationTypeDAOCoin,
@@ -595,6 +628,14 @@ func (bav *UtxoView) HelpConnectUpdateTransferRestrictionStatus(
 	creatorProfileEntry.DAOCoinEntry.TransferRestrictionStatus = txMeta.TransferRestrictionStatus
 
 	bav._setProfileEntryMappings(creatorProfileEntry)
+
+	var coins []*CoinEntry
+	coins = append(coins, &creatorProfileEntry.DAOCoinEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID: txn.Hash(),
+		Coins: coins,
+	})
 
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		Type:          OperationTypeDAOCoin,

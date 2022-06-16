@@ -3,14 +3,15 @@ package lib
 import (
 	"bytes"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
-	"github.com/holiman/uint256"
-	"github.com/pkg/errors"
 	"math"
 	"math/big"
 	"sort"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/golang/glog"
+	"github.com/holiman/uint256"
+	"github.com/pkg/errors"
 )
 
 func adjustBalance(
@@ -277,6 +278,8 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 		return 0, 0, nil, RuleErrorDAOCoinLimitOrderFeeNanosBelowMinTxFee
 	}
 
+	limitOrders := []*DAOCoinLimitOrderEntry{}
+
 	// If the transactor just wants to cancel an
 	// existing order, find and delete by OrderID.
 	if txMeta.CancelOrderID != nil {
@@ -309,6 +312,12 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 		utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 			Type:                                 OperationTypeDAOCoinLimitOrder,
 			PrevTransactorDAOCoinLimitOrderEntry: prevTransactorOrder,
+		})
+
+		limitOrders = append(limitOrders, existingTransactorOrder)
+		bav.SetStateOperationMappings(&StateOperation{
+			TxID:        txn.Hash(),
+			LimitOrders: limitOrders,
 		})
 
 		return totalInput, totalOutput, utxoOpsForTxn, nil
@@ -408,6 +417,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 			// where we use whatever's left of the user's balance to fill the order.
 			if err = bav.IsValidDAOCoinLimitOrder(matchingOrder); err != nil {
 				bav._deleteDAOCoinLimitOrderEntryMappings(matchingOrder)
+				limitOrders = append(limitOrders, matchingOrder)
 				continue
 			}
 
@@ -438,6 +448,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 			// doesn't have enough coins to give the transactor as promised.
 			if sellerBuyCoinBalanceBaseUnits.Lt(coinBaseUnitsBoughtByTransactor) {
 				bav._deleteDAOCoinLimitOrderEntryMappings(matchingOrder)
+				limitOrders = append(limitOrders, matchingOrder)
 				continue
 			}
 			// If we get here, we know that the person who placed the matching order has enough
@@ -525,6 +536,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 				// It should replace the existing order.
 				bav._setDAOCoinLimitOrderEntryMappings(matchingOrder)
 			}
+			limitOrders = append(limitOrders, matchingOrder)
 			filledOrders = append(filledOrders, matchingOrderFilledOrder)
 
 			// Now adjust the balances in our maps to reflect the coins that just changed hands.
@@ -578,10 +590,16 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 			// whatever is left-over of this order in the database. This
 			// is the default case.
 			bav._setDAOCoinLimitOrderEntryMappings(transactorOrder)
+			limitOrders = append(limitOrders, transactorOrder)
 		} else {
 			return 0, 0, nil, RuleErrorDAOCoinLimitOrderInvalidFillType
 		}
 	}
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:        txn.Hash(),
+		LimitOrders: limitOrders,
+	})
 
 	// Now, we need to update all the balances of all the users who were involved in
 	// all of the matching that we did above. We do this via the following steps:

@@ -2,12 +2,13 @@ package lib
 
 import (
 	"fmt"
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/holiman/uint256"
-	"github.com/pkg/errors"
 	"math"
 	"math/big"
 	"reflect"
+
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/holiman/uint256"
+	"github.com/pkg/errors"
 )
 
 func (bav *UtxoView) GetCreatorCoinBalanceEntryForHODLerPubKeyAndCreatorPubKey(
@@ -1025,6 +1026,18 @@ func (bav *UtxoView) HelpConnectCreatorCoinBuy(
 	}
 	desoLockedNanosDiff := int64(existingProfileEntry.CreatorCoinEntry.DeSoLockedNanos) - int64(prevCoinEntry.DeSoLockedNanos)
 
+	var balances []*BalanceEntry
+	balances = append(balances, creatorBalanceEntry)
+
+	var coins []*CoinEntry
+	coins = append(coins, &existingProfileEntry.CreatorCoinEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Balances: balances,
+		Coins:    coins,
+	})
+
 	// Add an operation to the list at the end indicating we've executed a
 	// CreatorCoin txn. Save the previous state of the CreatorCoinEntry for easy
 	// reversion during disconnect.
@@ -1330,6 +1343,18 @@ func (bav *UtxoView) HelpConnectCreatorCoinSell(
 				"desoLockedNanosDiff: Missing profile")
 	}
 	desoLockedNanosDiff := int64(existingProfileEntry.CreatorCoinEntry.DeSoLockedNanos) - int64(prevCoinEntry.DeSoLockedNanos)
+
+	var balances []*BalanceEntry
+	balances = append(balances, sellerBalanceEntry)
+
+	var coins []*CoinEntry
+	coins = append(coins, &existingProfileEntry.CreatorCoinEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Balances: balances,
+		Coins:    coins,
+	})
 
 	// Add an operation to the list at the end indicating we've executed a
 	// CreatorCoin txn. Save the previous state of the CreatorCoinEntry for easy

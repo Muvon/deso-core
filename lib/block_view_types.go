@@ -668,6 +668,9 @@ type StateOperation struct {
 	// All nfts entries that should be updated
 	NFTs []*NFTEntry
 
+	// NFT bids
+	Bids []*NFTBidEntry
+
 	// It's all about diamonds
 	Diamonds []*DiamondEntry
 
@@ -739,6 +742,15 @@ func (stateOp *StateOperation) RawEncodeWithoutMetadata(blockHeight uint64, skip
 	} else {
 		data = append(data, UintToBuf(uint64(len(stateOp.NFTs)))...)
 		for _, v := range stateOp.NFTs {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Bids == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Bids)))...)
+		for _, v := range stateOp.Bids {
 			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
 		}
 	}
@@ -849,6 +861,34 @@ func (stateOp *StateOperation) RawDecodeWithoutMetadata(blockHeight uint64, rr *
 			stateOp.LimitOrders = append(stateOp.LimitOrders, entry)
 		} else if err != nil {
 			return errors.Wrapf(err, "StateOperation.Decode: Problem reading limit orders")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of nfts")
+	}
+	for cnt > 0 {
+		entry := &NFTEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.NFTs = append(stateOp.NFTs, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading nfts")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of nft bids")
+	}
+	for cnt > 0 {
+		entry := &NFTBidEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Bids = append(stateOp.Bids, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading nft bids")
 		}
 		cnt--
 	}
