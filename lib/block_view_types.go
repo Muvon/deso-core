@@ -105,6 +105,7 @@ const (
 	EncoderTypeEndBlockView
 
 	EncoderTypeStateOperation
+	EncoderTypeFollowEntry
 )
 
 // Txindex encoder types.
@@ -651,11 +652,15 @@ type StateOperation struct {
 	// Changes that affected any existed profiles to be updated
 	Profiles []*ProfileEntry
 
+	Follows []*FollowEntry
+
 	// All virtually created utxos are go here
 	Utxos []*UtxoEntry
 
 	// All posts to be updated
 	Posts []*PostEntry
+
+	Likes []*LikeEntry
 
 	// All balance entries to be updated
 	Balances []*BalanceEntry
@@ -692,6 +697,15 @@ func (stateOp *StateOperation) RawEncodeWithoutMetadata(blockHeight uint64, skip
 		}
 	}
 
+	if stateOp.Follows == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Follows)))...)
+		for _, v := range stateOp.Follows {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
 	if stateOp.Utxos == nil {
 		data = append(data, UintToBuf(0)...)
 	} else {
@@ -706,6 +720,15 @@ func (stateOp *StateOperation) RawEncodeWithoutMetadata(blockHeight uint64, skip
 	} else {
 		data = append(data, UintToBuf(uint64(len(stateOp.Posts)))...)
 		for _, v := range stateOp.Posts {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Likes == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Likes)))...)
+		for _, v := range stateOp.Likes {
 			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
 		}
 	}
@@ -797,6 +820,20 @@ func (stateOp *StateOperation) RawDecodeWithoutMetadata(blockHeight uint64, rr *
 
 	cnt, err = ReadUvarint(rr)
 	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of follows")
+	}
+	for cnt > 0 {
+		entry := &FollowEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Follows = append(stateOp.Follows, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading follows")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
 		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of utxos")
 	}
 	for cnt > 0 {
@@ -819,6 +856,20 @@ func (stateOp *StateOperation) RawDecodeWithoutMetadata(blockHeight uint64, rr *
 			stateOp.Posts = append(stateOp.Posts, entry)
 		} else if err != nil {
 			return errors.Wrapf(err, "StateOperation.Decode: Problem reading posts")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of likes")
+	}
+	for cnt > 0 {
+		entry := &LikeEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Likes = append(stateOp.Likes, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading likes")
 		}
 		cnt--
 	}
@@ -2987,6 +3038,39 @@ type FollowEntry struct {
 
 	// Whether or not this entry is deleted in the view.
 	isDeleted bool
+}
+
+func (followEntry *FollowEntry) RawEncodeWithoutMetadata(blockHeight uint64, skipMetadata ...bool) []byte {
+	var data []byte
+
+	data = append(data, EncodeToBytes(blockHeight, followEntry.FollowerPKID, skipMetadata...)...)
+	data = append(data, EncodeToBytes(blockHeight, followEntry.FollowedPKID, skipMetadata...)...)
+	return data
+}
+
+func (followEntry *FollowEntry) RawDecodeWithoutMetadata(blockHeight uint64, rr *bytes.Reader) error {
+	followerPKID := &PKID{}
+	if exist, err := DecodeFromBytes(followerPKID, rr); exist && err == nil {
+		followEntry.FollowerPKID = followerPKID
+	} else if err != nil {
+		return errors.Wrapf(err, "FollowEntry.Decode: problem reading LikedPostHash")
+	}
+
+	followedPKID := &PKID{}
+	if exist, err := DecodeFromBytes(followedPKID, rr); exist && err == nil {
+		followEntry.FollowedPKID = followedPKID
+	} else if err != nil {
+		return errors.Wrapf(err, "FollowEntry.Decode: problem reading LikedPostHash")
+	}
+	return nil
+}
+
+func (followEntry *FollowEntry) GetVersionByte(blockHeight uint64) byte {
+	return 0
+}
+
+func (followEntry *FollowEntry) GetEncoderType() EncoderType {
+	return EncoderTypeFollowEntry
 }
 
 type DiamondKey struct {

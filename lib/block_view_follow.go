@@ -2,10 +2,11 @@ package lib
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 func (bav *UtxoView) GetFollowEntryForFollowerPublicKeyCreatorPublicKey(followerPublicKey []byte, creatorPublicKey []byte) *FollowEntry {
@@ -247,6 +248,8 @@ func (bav *UtxoView) _connectFollow(
 		return 0, 0, nil, fmt.Errorf("_connectFollow: followedPKID was nil or deleted; this should never happen")
 	}
 
+	var follows []*FollowEntry
+
 	// Here we consider existing followEntries.  It is handled differently in the follow
 	// vs. unfollow case so the code splits those cases out.
 	followKey := MakeFollowKey(followerPKID.PKID, followedPKID.PKID)
@@ -261,6 +264,7 @@ func (bav *UtxoView) _connectFollow(
 
 		// Now that we know that this is a valid unfollow entry, delete mapping.
 		bav._deleteFollowEntryMappings(existingFollowEntry)
+		follows = append(follows, existingFollowEntry)
 	} else {
 		if existingFollowEntry != nil && !existingFollowEntry.isDeleted {
 			// If this is a follow, a Follow entry *should not* exist.
@@ -275,7 +279,13 @@ func (bav *UtxoView) _connectFollow(
 			FollowedPKID: followedPKID.PKID,
 		}
 		bav._setFollowEntryMappings(followEntry)
+		follows = append(follows, followEntry)
 	}
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:    txn.Hash(),
+		Follows: follows,
+	})
 
 	// Add an operation to the list at the end indicating we've added a follow.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{

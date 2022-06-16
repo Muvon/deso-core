@@ -2,10 +2,11 @@ package lib
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 func (bav *UtxoView) _getLikeEntryForLikeKey(likeKey *LikeKey) *LikeEntry {
@@ -152,6 +153,8 @@ func (bav *UtxoView) _connectLike(
 	// At this point the code diverges and considers the like / unlike flows differently
 	// since the presence of an existing like entry has a different effect in either case.
 
+	var likes []*LikeEntry
+
 	likeKey := MakeLikeKey(txn.PublicKey, *txMeta.LikedPostHash)
 	existingLikeEntry := bav._getLikeEntryForLikeKey(&likeKey)
 	// We don't need to make a copy of the post entry because all we're modifying is the like count,
@@ -169,6 +172,7 @@ func (bav *UtxoView) _connectLike(
 		// Now that we know there is a like entry, we delete it and decrement the like count.
 		bav._deleteLikeEntryMappings(existingLikeEntry)
 		updatedPostEntry.LikeCount -= 1
+		likes = append(likes, existingLikeEntry)
 	} else {
 		// Ensure that there *is not* an existing like entry.
 		if existingLikeEntry != nil && !existingLikeEntry.isDeleted {
@@ -185,10 +189,20 @@ func (bav *UtxoView) _connectLike(
 		}
 		bav._setLikeEntryMappings(likeEntry)
 		updatedPostEntry.LikeCount += 1
+
+		likes = append(likes, likeEntry)
 	}
 
 	// Set the updated post entry so it has the new like count.
 	bav._setPostEntryMappings(&updatedPostEntry)
+
+	var posts []*PostEntry
+	posts = append(posts, &updatedPostEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:  txn.Hash(),
+		Posts: posts,
+		Likes: likes,
+	})
 
 	// Add an operation to the list at the end indicating we've added a follow.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{

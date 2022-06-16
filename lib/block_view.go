@@ -1444,6 +1444,18 @@ func (bav *UtxoView) _connectBasicTransfer(
 		// Now set the diamond entry mappings on the view so they are flushed to the DB.
 		bav._setDiamondEntryMappings(newDiamondEntry)
 
+		var diamonds []*DiamondEntry
+		var posts []*PostEntry
+
+		diamonds = append(diamonds, newDiamondEntry)
+		posts = append(posts, newDiamondPostEntry)
+
+		bav.SetStateOperationMappings(&StateOperation{
+			TxID:     txn.Hash(),
+			Diamonds: diamonds,
+			Posts:    posts,
+		})
+
 		// Add an op to help us with the disconnect.
 		utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 			Type:             OperationTypeDeSoDiamond,
