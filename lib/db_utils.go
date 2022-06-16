@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/holiman/uint256"
 	"io"
 	"log"
 	"math"
@@ -17,6 +16,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/holiman/uint256"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/davecgh/go-spew/spew"
@@ -323,6 +324,8 @@ type DBPrefixes struct {
 	PrefixDAOCoinLimitOrderByTransactorPKID []byte `prefix_id:"[61]" is_state:"true"`
 	PrefixDAOCoinLimitOrderByOrderID        []byte `prefix_id:"[62]" is_state:"true"`
 	// NEXT_TAG: 63
+
+	PrefixStateOperation []byte `prefix_id:"[255]" is_state:"true"`
 }
 
 // StatePrefixToDeSoEncoder maps each state prefix to a DeSoEncoder type that is stored under that prefix.
@@ -479,6 +482,8 @@ func StatePrefixToDeSoEncoder(prefix []byte) (_isEncoder bool, _encoder DeSoEnco
 	} else if bytes.Equal(prefix, Prefixes.PrefixDAOCoinLimitOrderByOrderID) {
 		// prefix_id:"[62]"
 		return true, &DAOCoinLimitOrderEntry{}
+	} else if bytes.Equal(prefix, Prefixes.PrefixStateOperation) {
+		return true, &StateOperation{}
 	}
 
 	return true, nil
@@ -5366,6 +5371,7 @@ type TransactionMetadata struct {
 	CreateNFTTxindexMetadata           *CreateNFTTxindexMetadata           `json:",omitempty"`
 	UpdateNFTTxindexMetadata           *UpdateNFTTxindexMetadata           `json:",omitempty"`
 	DAOCoinLimitOrderTxindexMetadata   *DAOCoinLimitOrderTxindexMetadata   `json:",omitempty"`
+	StateOperation                     *StateOperation                     `json:",omitempty"`
 }
 
 func (txnMeta *TransactionMetadata) RawEncodeWithoutMetadata(blockHeight uint64, skipMetadata ...bool) []byte {
@@ -6948,6 +6954,73 @@ func DBGetAllOwnerToDerivedKeyMappings(handle *badger.DB, ownerPublicKey PublicK
 	}
 
 	return derivedEntries, nil
+}
+
+func _dbKeyForTxIdStateOperationMapping(txID *BlockHash) []byte {
+	// Make a copy to avoid multiple calls to this function re-using the same slice.
+	prefixCopy := append([]byte{}, Prefixes.PrefixStateOperation...)
+	key := append(prefixCopy, txID[:]...)
+	return key
+}
+
+func DBPutStateOperationMappingWithTxn(txn *badger.Txn, snap *Snapshot, blockHeight uint64,
+	txID *BlockHash, stateOp *StateOperation) error {
+
+	key := _dbKeyForTxIdStateOperationMapping(txID)
+
+	return DBSetWithTxn(txn, snap, key, EncodeToBytes(blockHeight, stateOp))
+}
+
+func DBPutStateOperationMapping(handle *badger.DB, snap *Snapshot, blockHeight uint64, txID *BlockHash, stateOp *StateOperation) error {
+
+	return handle.Update(func(txn *badger.Txn) error {
+		return DBPutStateOperationMappingWithTxn(txn, snap, blockHeight, txID, stateOp)
+	})
+}
+
+func DBGetTxIdToStateOperationMappingWithTxn(txn *badger.Txn, snap *Snapshot,
+	txID *BlockHash) *StateOperation {
+
+	key := _dbKeyForTxIdStateOperationMapping(txID)
+	stateOpKeyBytes, err := DBGetWithTxn(txn, snap, key)
+	if err != nil {
+		return nil
+	}
+
+	stateOp := &StateOperation{}
+	rr := bytes.NewReader(stateOpKeyBytes)
+	DecodeFromBytes(stateOp, rr)
+	return stateOp
+}
+
+func DBGetTxIdToStateOperationMapping(db *badger.DB, snap *Snapshot,
+	txID *BlockHash) *StateOperation {
+
+	var stateOp *StateOperation
+	db.View(func(txn *badger.Txn) error {
+		stateOp = DBGetTxIdToStateOperationMappingWithTxn(txn, snap, txID)
+		return nil
+	})
+	return stateOp
+}
+
+func DBDeleteStateOperationMappingWithTxn(txn *badger.Txn, snap *Snapshot,
+	txID *BlockHash) error {
+
+	// When a mapping exists, delete it.
+	if err := DBDeleteWithTxn(txn, snap, _dbKeyForTxIdStateOperationMapping(txID)); err != nil {
+		return errors.Wrapf(err, "DBDeleteStateOperationMappingWithTxn: Deleting "+
+			"txID %s failed", PkToStringMainnet(txID[:]))
+	}
+
+	return nil
+}
+
+func DBDeleteStateOperationMapping(handle *badger.DB, snap *Snapshot,
+	txID *BlockHash) error {
+	return handle.Update(func(txn *badger.Txn) error {
+		return DBDeleteStateOperationMappingWithTxn(txn, snap, txID)
+	})
 }
 
 // ======================================================================================

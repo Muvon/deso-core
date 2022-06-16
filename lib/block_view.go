@@ -3,11 +3,12 @@ package lib
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"math"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/dgraph-io/badger/v3"
@@ -89,6 +90,8 @@ type UtxoView struct {
 	// DAO coin limit order entry mapping.
 	DAOCoinLimitOrderMapKeyToDAOCoinLimitOrderEntry map[DAOCoinLimitOrderMapKey]*DAOCoinLimitOrderEntry
 
+	StateOperationEntry map[BlockHash]*StateOperation
+
 	// The hash of the tip the view is currently referencing. Mainly used
 	// for error-checking when doing a bulk operation on the view.
 	TipHash *BlockHash
@@ -159,6 +162,8 @@ func (bav *UtxoView) _ResetViewMappingsAfterFlush() {
 
 	// DAO Coin Limit Order Entries
 	bav.DAOCoinLimitOrderMapKeyToDAOCoinLimitOrderEntry = make(map[DAOCoinLimitOrderMapKey]*DAOCoinLimitOrderEntry)
+
+	bav.StateOperationEntry = make(map[BlockHash]*StateOperation)
 }
 
 func (bav *UtxoView) CopyUtxoView() (*UtxoView, error) {

@@ -2,11 +2,12 @@ package lib
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 func (bav *UtxoView) FlushToDb(blockHeight uint64) error {
@@ -118,6 +119,9 @@ func (bav *UtxoView) FlushToDbWithTxn(txn *badger.Txn, blockHeight uint64) error
 		return err
 	}
 
+	if err := bav._flushStateOperationEntriesToDbWithTxn(txn, blockHeight); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -914,6 +918,41 @@ func (bav *UtxoView) _flushDAOCoinBalanceEntriesToDbWithTxn(txn *badger.Txn, blo
 	glog.V(2).Infof("_flushDAOCoinBalanceEntriesToDbWithTxn: deleted %d mappings, put %d mappings", numDeleted, numPut)
 
 	// At this point all of the DAO coin mappings in the db should be up-to-date.
+
+	return nil
+}
+
+func (bav *UtxoView) _flushStateOperationEntriesToDbWithTxn(txn *badger.Txn, blockHeight uint64) error {
+	glog.V(2).Infof("_flushStateOperationEntriesToDbWithTxn: flushing %d mappings", len(bav.StateOperationEntry))
+
+	// Go through all entries in the DerivedKeyToDerivedEntry map and add them to the DB.
+	for txID, stateOp := range bav.StateOperationEntry {
+		// Delete the existing mapping in the DB for this map key, this will be re-added
+		// later if isDeleted=false.
+		if err := DBDeleteStateOperationMappingWithTxn(txn, bav.Snapshot,
+			&txID); err != nil {
+
+			return errors.Wrapf(err, "UtxoView._flushStateOperationEntriesToDbWithTxn: "+
+				"Problem deleting state StateOperation %v from db", *stateOp)
+		}
+
+		numDeleted := 0
+		numPut := 0
+		if stateOp.isDeleted {
+			// Since entry is deleted, there's nothing to do.
+			numDeleted++
+		} else {
+			// In this case we add the mapping to the DB.
+			if err := DBPutStateOperationMappingWithTxn(txn, bav.Snapshot, blockHeight,
+				&txID, stateOp); err != nil {
+
+				return errors.Wrapf(err, "UtxoView._flushStateOperationEntriesToDbWithTxn: "+
+					"Problem putting StateOperation %v to db", *stateOp)
+			}
+			numPut++
+		}
+		glog.V(2).Infof("_flushDerivedKeyEntryToDbWithTxn: deleted %d mappings, put %d mappings", numDeleted, numPut)
+	}
 
 	return nil
 }

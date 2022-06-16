@@ -103,6 +103,8 @@ const (
 
 	// EncoderTypeEndBlockView encoder type should be at the end and is used for automated tests.
 	EncoderTypeEndBlockView
+
+	EncoderTypeStateOperation
 )
 
 // Txindex encoder types.
@@ -637,6 +639,248 @@ func (op OperationType) String() string {
 		}
 	}
 	return "OperationTypeUNKNOWN"
+}
+
+type StateOperation struct {
+	// This is ID of transaction that state belongs to
+	TxID *BlockHash
+
+	// This flag is used only for flushing to disk in normal way
+	isDeleted bool
+
+	// Changes that affected any existed profiles to be updated
+	Profiles []*ProfileEntry
+
+	// All virtually created utxos are go here
+	Utxos []*UtxoEntry
+
+	// All posts to be updated
+	Posts []*PostEntry
+
+	// All balance entries to be updated
+	Balances []*BalanceEntry
+
+	Coins []*CoinEntry
+
+	// All DAO Coin limit orders to update/create
+	LimitOrders []*DAOCoinLimitOrderEntry
+
+	// All nfts entries that should be updated
+	NFTs []*NFTEntry
+
+	// It's all about diamonds
+	Diamonds []*DiamondEntry
+
+	// This is for legacy transaction type with updated Bitcoin USD Rate
+	BitcoinUSDRate uint64
+}
+
+func (stateOp *StateOperation) RawEncodeWithoutMetadata(blockHeight uint64, skipMetadata ...bool) []byte {
+	var data []byte
+
+	data = append(data, EncodeToBytes(blockHeight, stateOp.TxID, skipMetadata...)...)
+
+	if stateOp.Profiles == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Profiles)))...)
+		for _, v := range stateOp.Profiles {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Utxos == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Utxos)))...)
+		for _, v := range stateOp.Utxos {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Posts == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Posts)))...)
+		for _, v := range stateOp.Posts {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Balances == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Balances)))...)
+		for _, v := range stateOp.Balances {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Coins == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Coins)))...)
+		for _, v := range stateOp.Coins {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.LimitOrders == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.LimitOrders)))...)
+		for _, v := range stateOp.LimitOrders {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.NFTs == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.NFTs)))...)
+		for _, v := range stateOp.NFTs {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Diamonds == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Diamonds)))...)
+		for _, v := range stateOp.Diamonds {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	data = append(data, UintToBuf(stateOp.BitcoinUSDRate)...)
+
+	return data
+}
+
+func (stateOp *StateOperation) RawDecodeWithoutMetadata(blockHeight uint64, rr *bytes.Reader) error {
+	var err error
+
+	entry := &BlockHash{}
+	if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+		stateOp.TxID = entry
+	} else if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: Problem reading txID")
+	}
+
+	var cnt uint64
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of profiles")
+	}
+	for cnt > 0 {
+		entry := &ProfileEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Profiles = append(stateOp.Profiles, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading profiles")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of utxos")
+	}
+	for cnt > 0 {
+		entry := &UtxoEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Utxos = append(stateOp.Utxos, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading utxos")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of posts")
+	}
+	for cnt > 0 {
+		entry := &PostEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Posts = append(stateOp.Posts, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading posts")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of balance entries")
+	}
+	for cnt > 0 {
+		entry := &BalanceEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Balances = append(stateOp.Balances, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading balance entries")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of coin entries")
+	}
+	for cnt > 0 {
+		entry := &CoinEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Coins = append(stateOp.Coins, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading coin entries")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of limit orders")
+	}
+	for cnt > 0 {
+		entry := &DAOCoinLimitOrderEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.LimitOrders = append(stateOp.LimitOrders, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading limit orders")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of diamonds")
+	}
+	for cnt > 0 {
+		entry := &DiamondEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Diamonds = append(stateOp.Diamonds, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading diamonds")
+		}
+		cnt--
+	}
+
+	stateOp.BitcoinUSDRate, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding Bitcoin USD rate")
+	}
+
+	return nil
+}
+
+func (message *StateOperation) GetVersionByte(blockHeight uint64) byte {
+	return 0
+}
+
+func (message *StateOperation) GetEncoderType() EncoderType {
+	return EncoderTypeStateOperation
 }
 
 type UtxoOperation struct {

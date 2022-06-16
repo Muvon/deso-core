@@ -2961,7 +2961,7 @@ func (msg *MsgDeSoTxn) UnmarshalJSON(data []byte) error {
 }
 
 // ==================================================================
-// BasicTransferMetadata
+// BasicTransferMetadat
 // ==================================================================
 
 type BasicTransferMetadata struct {
