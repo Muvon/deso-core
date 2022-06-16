@@ -1347,6 +1347,7 @@ func (bav *UtxoView) _helpConnectNFTSold(args HelpConnectNFTSoldStruct) (
 	newAcceptedBidHistory := append(*prevAcceptedBidHistory, acceptedNFTBidEntry)
 	bav._setAcceptNFTBidHistoryMappings(nftKey, &newAcceptedBidHistory)
 
+	var bids []*NFTBidEntry
 	// (2) Iterate over all the NFTBidEntries for this NFT and delete them.
 	bidEntries := bav.GetAllNFTBidEntries(args.NFTPostHash, args.SerialNumber)
 	if len(bidEntries) == 0 && nftBidEntry.SerialNumber != 0 {
@@ -1358,18 +1359,20 @@ func (bav *UtxoView) _helpConnectNFTSold(args HelpConnectNFTSoldStruct) (
 	for _, bidEntry := range bidEntries {
 		deletedBidEntries = append(deletedBidEntries, bidEntry)
 		bav._deleteNFTBidEntryMappings(bidEntry)
+		bids = append(bids, bidEntry)
 	}
 	// If this is a SerialNumber zero BidEntry, we must delete it specifically.
 	if nftBidEntry.SerialNumber == uint64(0) {
 		deletedBidEntries = append(deletedBidEntries, nftBidEntry)
 		bav._deleteNFTBidEntryMappings(nftBidEntry)
+		bids = append(bids, nftBidEntry)
 	}
 
 	nftPaymentUtxoKeys := []*UtxoKey{}
 	// This may start negative but that's OK because the first thing we do is increment it
 	// in createUTXO
 	nextUtxoIndex := len(args.Txn.TxOutputs) - 1
-	createUTXO := func(amountNanos uint64, publicKeyArg []byte, utxoType UtxoType) (_err error) {
+	createUTXO := func(amountNanos uint64, publicKeyArg []byte, utxoType UtxoType) (utxo *UtxoEntry, _err error) {
 		publicKey := publicKeyArg
 
 		// nextUtxoIndex is guaranteed to be >= 0 after this increment
@@ -1392,48 +1395,54 @@ func (bav *UtxoView) _helpConnectNFTSold(args HelpConnectNFTSoldStruct) (
 
 		utxoOp, err := bav._addUtxo(&utxoEntry)
 		if err != nil {
-			return errors.Wrapf(err, "_helpConnectNFTSold: Problem adding output utxo")
+			return nil, errors.Wrapf(err, "_helpConnectNFTSold: Problem adding output utxo")
 		}
 		nftPaymentUtxoKeys = append(nftPaymentUtxoKeys, royaltyOutputKey)
 
 		// Rosetta uses this UtxoOperation to provide INPUT amounts
 		utxoOpsForTxn = append(utxoOpsForTxn, utxoOp)
 
-		return nil
+		return &utxoEntry, nil
 	}
 
+	var utxo *UtxoEntry
+	var utxos []*UtxoEntry
 	// (3) Pay the seller by creating a new entry for this output and add it to the view.
-	if err = createUTXO(bidAmountMinusRoyalties, sellerPublicKey, UtxoTypeNFTSeller); err != nil {
+	if utxo, err = createUTXO(bidAmountMinusRoyalties, sellerPublicKey, UtxoTypeNFTSeller); err != nil {
 		return 0, 0, nil, errors.Wrapf(
 			err, "_helpConnectNFTSold: Problem creating UTXO for seller: ")
 	}
+	utxos = append(utxos, utxo)
 
 	// (4) Pay royalties to the original artist.
 	if creatorRoyaltyNanos > 0 {
-		if err = createUTXO(creatorRoyaltyNanos, nftPostEntry.PosterPublicKey, UtxoTypeNFTCreatorRoyalty); err != nil {
+		if utxo, err = createUTXO(creatorRoyaltyNanos, nftPostEntry.PosterPublicKey, UtxoTypeNFTCreatorRoyalty); err != nil {
 			return 0, 0, nil, errors.Wrapf(
 				err, "_helpConnectNFTsold: Problem creating UTXO for creator royalty: ")
 		}
+		utxos = append(utxos, utxo)
 	}
 
 	// (4-a) Pay DESO royalties to any additional royalties specified
 	for _, publicKeyRoyaltyPairIter := range additionalDESORoyalties {
 		publicKeyRoyaltyPair := publicKeyRoyaltyPairIter
 		if publicKeyRoyaltyPair.RoyaltyAmountNanos > 0 {
-			if err = createUTXO(publicKeyRoyaltyPair.RoyaltyAmountNanos, publicKeyRoyaltyPair.PublicKey,
+			if utxo, err = createUTXO(publicKeyRoyaltyPair.RoyaltyAmountNanos, publicKeyRoyaltyPair.PublicKey,
 				UtxoTypeNFTAdditionalDESORoyalty); err != nil {
 				return 0, 0, nil, errors.Wrapf(
 					err, "_helpConnectNFTSold: Problem creating UTXO for additional DESO royalty: ")
 			}
+			utxos = append(utxos, utxo)
 		}
 	}
 
 	// (5) Give any change back to the bidder.
 	if bidderChangeNanos > 0 {
-		if err = createUTXO(bidderChangeNanos, bidderPublicKey, UtxoTypeNFTCreatorRoyalty); err != nil {
+		if utxo, err = createUTXO(bidderChangeNanos, bidderPublicKey, UtxoTypeNFTCreatorRoyalty); err != nil {
 			return 0, 0, nil, errors.Wrapf(
 				err, "_helpConnectNFTSold: Problem creating UTXO for bidder change: ")
 		}
+		utxos = append(utxos, utxo)
 	}
 
 	// We don't do a royalty if the number of coins in circulation is too low.
@@ -1457,6 +1466,7 @@ func (bav *UtxoView) _helpConnectNFTSold(args HelpConnectNFTSoldStruct) (
 	// (6-a) Add additional coin royalties to deso locked. If the number of coins in circulation is less than
 	// the "auto sell threshold" we burn the deso.
 	var newCoinRoyaltyCoinEntries []CoinEntry
+	var coins []*CoinEntry
 	for kk := range additionalCoinRoyalties {
 		publicKeyRoyaltyPair := additionalCoinRoyalties[kk]
 		// Get coin entry
@@ -1474,6 +1484,7 @@ func (bav *UtxoView) _helpConnectNFTSold(args HelpConnectNFTSoldStruct) (
 			bav._setProfileEntryMappings(&profileEntry)
 		}
 		newCoinRoyaltyCoinEntries = append(newCoinRoyaltyCoinEntries, newCoinRoyaltyCoinEntry)
+		coins = append(coins, &newCoinRoyaltyCoinEntry)
 	}
 
 	// (7) Save a copy of the previous postEntry and then decrement NumNFTCopiesForSale.
@@ -1620,6 +1631,16 @@ func (bav *UtxoView) _helpConnectNFTSold(args HelpConnectNFTSoldStruct) (
 			additionalCoinRoyaltiesDiff.Int64())
 	}
 
+	var nfts []*NFTEntry
+	nfts = append(nfts, newNFTEntry)
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:  args.TxHash,
+		Utxos: utxos,
+		Coins: coins,
+		NFTs:  nfts,
+		Bids:  bids,
+	})
 	return totalInput, totalOutput, utxoOpsForTxn, nil
 }
 
