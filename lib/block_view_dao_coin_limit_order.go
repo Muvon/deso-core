@@ -376,7 +376,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 	//
 	// Fetch all the orders, and copy them over into a new list so that we can revert in
 	// the disconnect case.
-	matchingOrders, err := bav.GetNextLimitOrdersToFill(txn, transactorOrder, nil, blockHeight)
+	matchingOrders, err := bav.GetNextLimitOrdersToFill(transactorOrder, nil, blockHeight)
 	if err != nil {
 		return 0, 0, nil, errors.Wrapf(
 			err, "Error getting next limit orders to fill: ")
@@ -563,7 +563,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 			break
 		}
 		lastSeenOrder = prevMatchingOrders[len(prevMatchingOrders)-1]
-		matchingOrders, err = bav.GetNextLimitOrdersToFill(txn, transactorOrder, lastSeenOrder, blockHeight)
+		matchingOrders, err = bav.GetNextLimitOrdersToFill(transactorOrder, lastSeenOrder, blockHeight)
 		if err != nil {
 			return 0, 0, nil, errors.Wrapf(err,
 				"_connectDAOCoinLimitOrder: Error getting next set of orders to fill: ")
@@ -917,7 +917,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 // GetNextLimitOrdersToFill retrieves the next set of candidate DAOCoinLimitOrderEntries
 // to fulfill the quantity specified by the transactorOrder. If lastSeenOrder is specified
 // we will exclude lastSeenOrder and all BETTER orders from the result set.
-func (bav *UtxoView) GetNextLimitOrdersToFill(txn *MsgDeSoTxn,
+func (bav *UtxoView) GetNextLimitOrdersToFill(
 	transactorOrder *DAOCoinLimitOrderEntry, lastSeenOrder *DAOCoinLimitOrderEntry, blockHeight uint32) (
 	[]*DAOCoinLimitOrderEntry, error) {
 	// Construct map of potential-matching orders in the view. We skip
@@ -939,8 +939,6 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(txn *MsgDeSoTxn,
 	if err != nil {
 		return nil, err
 	}
-
-	glog.Infof("TX: %s LAST: %v  NEXT: %v ", txn.Hash().String(), lastSeenOrder, matchingOrders)
 
 	// Update UTXO with relevant limit order entries from database.
 	for _, matchingOrder := range matchingOrders {

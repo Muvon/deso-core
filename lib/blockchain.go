@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"encoding/hex"
 	"fmt"
+	"github.com/holiman/uint256"
 	"math"
 	"math/big"
 	"reflect"
@@ -12,8 +13,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/holiman/uint256"
 
 	btcdchain "github.com/btcsuite/btcd/blockchain"
 	chainlib "github.com/btcsuite/btcd/blockchain"
@@ -3578,7 +3577,7 @@ func (bc *Blockchain) CreateDAOCoinLimitOrderTxn(
 
 		for transactorQuantityToFill.GtUint64(0) {
 			var matchingOrderEntries []*DAOCoinLimitOrderEntry
-			matchingOrderEntries, err = utxoView.GetNextLimitOrdersToFill(txn, transactorOrder, lastSeenOrder, blockHeight)
+			matchingOrderEntries, err = utxoView.GetNextLimitOrdersToFill(transactorOrder, lastSeenOrder, blockHeight)
 			if err != nil {
 				return nil, 0, 0, 0, errors.Wrapf(
 					err, "Blockchain.CreateDAOCoinLimitOrderTxn: Error getting Bid orders to match: ")
@@ -3666,7 +3665,7 @@ func (bc *Blockchain) CreateDAOCoinLimitOrderTxn(
 
 		for transactorQuantityToFill.GtUint64(0) {
 			var matchingOrderEntries []*DAOCoinLimitOrderEntry
-			matchingOrderEntries, err = utxoView.GetNextLimitOrdersToFill(txn, transactorOrder, lastSeenOrder, blockHeight)
+			matchingOrderEntries, err = utxoView.GetNextLimitOrdersToFill(transactorOrder, lastSeenOrder, blockHeight)
 			if err != nil {
 				return nil, 0, 0, 0, errors.Wrapf(
 					err, "Blockchain.CreateDAOCoinLimitOrderTxn: Error getting orders to match: ")
