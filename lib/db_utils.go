@@ -5371,7 +5371,6 @@ type TransactionMetadata struct {
 	CreateNFTTxindexMetadata           *CreateNFTTxindexMetadata           `json:",omitempty"`
 	UpdateNFTTxindexMetadata           *UpdateNFTTxindexMetadata           `json:",omitempty"`
 	DAOCoinLimitOrderTxindexMetadata   *DAOCoinLimitOrderTxindexMetadata   `json:",omitempty"`
-	StateOperation                     *StateOperation                     `json:",omitempty"`
 }
 
 func (txnMeta *TransactionMetadata) RawEncodeWithoutMetadata(blockHeight uint64, skipMetadata ...bool) []byte {

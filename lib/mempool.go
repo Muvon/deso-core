@@ -1789,7 +1789,6 @@ func ComputeTransactionMetadata(txn *MsgDeSoTxn, utxoView *UtxoView, blockHash *
 
 	}
 
-	txnMeta.StateOperation = utxoView.GetStateOperation(txn.Hash())
 	return txnMeta
 }
 
