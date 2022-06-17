@@ -371,6 +371,8 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 	// Note that DESO is just dao coin PKID = ZeroPKID
 	balanceDeltas := make(map[PKID]map[PKID]*big.Int)
 
+	glog.Infof("TX: %s", txn.Hash().String())
+
 	// Now, we find all the orders that we can match against the seller, and adjust the
 	// increase and decrease maps accordingly.
 	//
@@ -939,6 +941,8 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(
 	if err != nil {
 		return nil, err
 	}
+
+	glog.Infof("LAST: %v  NEXT: %v ", lastSeenOrder, matchingOrders)
 
 	// Update UTXO with relevant limit order entries from database.
 	for _, matchingOrder := range matchingOrders {
