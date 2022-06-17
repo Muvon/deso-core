@@ -2,14 +2,15 @@ package lib
 
 import (
 	"fmt"
+	"math"
+	"math/big"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/pkg/errors"
-	"math"
-	"math/big"
 )
 
 // The blockchain used to store the USD to BTC exchange rate in bav.USDCentsPerBitcoin, which was set by a
@@ -363,6 +364,11 @@ func (bav *UtxoView) _connectUpdateBitcoinUSDExchangeRate(
 	// so it can be easily reverted.
 	prevUSDCentsPerBitcoin := bav.USDCentsPerBitcoin
 	bav.USDCentsPerBitcoin = txMeta.USDCentsPerBitcoin
+
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:           txn.Hash(),
+		BitcoinUSDRate: bav.USDCentsPerBitcoin,
+	})
 
 	// Save a UtxoOperation of type OperationTypeUpdateBitcoinUSDExchangeRate that will allow
 	// us to easily revert  when we disconnect the transaction.
