@@ -5,11 +5,12 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"math"
-	"reflect"
 )
 
 func (bav *UtxoView) _getMessageEntryForMessageKey(messageKey *MessageKey) *MessageEntry {
@@ -560,6 +561,13 @@ func (bav *UtxoView) _connectPrivateMessage(
 		bav._setMessageEntryMappings(messageEntry)
 	}
 
+	var messages []*MessageEntry
+	messages = append(messages, messageEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:     txn.Hash(),
+		Messages: messages,
+	})
+
 	// Add an operation to the list at the end indicating we've added a message
 	// to our data structure.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
@@ -947,6 +955,13 @@ func (bav *UtxoView) _connectMessagingGroup(
 		}
 	}
 	bav._setMessagingGroupKeyToMessagingGroupEntryMapping(&messagingGroupKey.OwnerPublicKey, &messagingGroupEntry)
+
+	var groups []*MessagingGroupEntry
+	groups = append(groups, &messagingGroupEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:   txn.Hash(),
+		Groups: groups,
+	})
 
 	// Construct UtxoOperation.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{

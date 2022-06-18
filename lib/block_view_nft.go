@@ -1934,6 +1934,13 @@ func (bav *UtxoView) _connectNFTTransfer(
 	bav._deleteNFTEntryMappings(prevNFTEntry)
 	bav._setNFTEntryMappings(&newNFTEntry)
 
+	var nfts []*NFTEntry
+	nfts = append(nfts, &newNFTEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID: txn.Hash(),
+		NFTs: nfts,
+	})
+
 	// Add an operation to the list at the end indicating we've connected an NFT update.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		Type:         OperationTypeNFTTransfer,
@@ -2112,6 +2119,16 @@ func (bav *UtxoView) _connectBurnNFT(
 	nftPostEntry.NumNFTCopiesBurned++
 	bav._deletePostEntryMappings(&prevPostEntry)
 	bav._setPostEntryMappings(nftPostEntry)
+
+	var nfts []*NFTEntry
+	nfts = append(nfts, nftEntry)
+	var posts []*PostEntry
+	posts = append(posts, nftPostEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID:  txn.Hash(),
+		NFTs:  nfts,
+		Posts: posts,
+	})
 
 	// Add an operation for the burnt NFT.
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
