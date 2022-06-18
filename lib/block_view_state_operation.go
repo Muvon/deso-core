@@ -49,6 +49,8 @@ type StateOperation struct {
 
 	Groups []*MessagingGroupEntry
 
+	Keys []*DerivedKeyEntry
+
 	// This is for legacy transaction type with updated Bitcoin USD Rate
 	BitcoinUSDRate uint64
 }
@@ -171,6 +173,15 @@ func (stateOp *StateOperation) RawEncodeWithoutMetadata(blockHeight uint64, skip
 	} else {
 		data = append(data, UintToBuf(uint64(len(stateOp.Groups)))...)
 		for _, v := range stateOp.Groups {
+			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
+		}
+	}
+
+	if stateOp.Keys == nil {
+		data = append(data, UintToBuf(0)...)
+	} else {
+		data = append(data, UintToBuf(uint64(len(stateOp.Keys)))...)
+		for _, v := range stateOp.Keys {
 			data = append(data, EncodeToBytes(blockHeight, v, skipMetadata...)...)
 		}
 	}
@@ -370,6 +381,20 @@ func (stateOp *StateOperation) RawDecodeWithoutMetadata(blockHeight uint64, rr *
 			stateOp.Groups = append(stateOp.Groups, entry)
 		} else if err != nil {
 			return errors.Wrapf(err, "StateOperation.Decode: Problem reading groups")
+		}
+		cnt--
+	}
+
+	cnt, err = ReadUvarint(rr)
+	if err != nil {
+		return errors.Wrapf(err, "StateOperation.Decode: problem decoding count of derived keys")
+	}
+	for cnt > 0 {
+		entry := &DerivedKeyEntry{}
+		if exist, err := DecodeFromBytes(entry, rr); exist && err == nil {
+			stateOp.Keys = append(stateOp.Keys, entry)
+		} else if err != nil {
+			return errors.Wrapf(err, "StateOperation.Decode: Problem reading derived keys")
 		}
 		cnt--
 	}

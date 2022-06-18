@@ -3,9 +3,10 @@ package lib
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 // _verifyAccessSignature verifies if the accessSignature is correct. Valid
@@ -255,6 +256,13 @@ func (bav *UtxoView) _connectAuthorizeDerivedKey(
 		isDeleted:                       false,
 	}
 	bav._setDerivedKeyMapping(&derivedKeyEntry)
+
+	var keys []*DerivedKeyEntry
+	keys = append(keys, &derivedKeyEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID: txn.Hash(),
+		Keys: keys,
+	})
 
 	// Call _connectBasicTransfer() to verify txn signature.
 	totalInput, totalOutput, utxoOpsForTxn, err := bav._connectBasicTransfer(

@@ -1709,6 +1709,12 @@ func (bav *UtxoView) _checkDerivedKeySpendingLimit(
 	// Set derived key entry mapping
 	bav._setDerivedKeyMapping(&derivedKeyEntry)
 
+	var keys []*DerivedKeyEntry
+	keys = append(keys, &derivedKeyEntry)
+	bav.SetStateOperationMappings(&StateOperation{
+		TxID: txn.Hash(),
+		Keys: keys,
+	})
 	// Append the SpendingLimitAccounting operation se can revert this transaction in the disconnect logic
 	utxoOpsForTxn = append(utxoOpsForTxn, &UtxoOperation{
 		Type:                OperationTypeSpendingLimitAccounting,
