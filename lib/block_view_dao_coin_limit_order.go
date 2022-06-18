@@ -942,7 +942,7 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(
 		return nil, err
 	}
 
-	glog.Infof("LAST: %v  NEXT: %v ", lastSeenOrder, matchingOrders)
+	glog.Infof("LAST: %v  NEXT: %v ", spew.Sdump(lastSeenOrder), spew.Sdump(matchingOrders))
 
 	// Update UTXO with relevant limit order entries from database.
 	for _, matchingOrder := range matchingOrders {
