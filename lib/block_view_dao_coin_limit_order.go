@@ -1006,7 +1006,7 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(
 		}
 	}
 
-	glog.Infof("SORTED: %v", spew.Sdump(outputMatchingOrders))
+	glog.Infof("OUTPUT: %v", spew.Sdump(outputMatchingOrders))
 
 	return outputMatchingOrders, nil
 }
