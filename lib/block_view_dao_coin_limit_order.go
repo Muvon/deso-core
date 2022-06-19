@@ -942,7 +942,8 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(
 		return nil, err
 	}
 
-	glog.Infof("LAST: %v  NEXT: %v ", spew.Sdump(lastSeenOrder), spew.Sdump(matchingOrders))
+	glog.Infof("LAST: %v", spew.Sdump(lastSeenOrder))
+	glog.Infof("FETCHED: %v", spew.Sdump(matchingOrders))
 
 	// Update UTXO with relevant limit order entries from database.
 	for _, matchingOrder := range matchingOrders {
@@ -982,6 +983,8 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(
 		return sortedMatchingOrders[ii].IsBetterMatchingOrderThan(sortedMatchingOrders[jj])
 	})
 
+	glog.Infof("SORTED: %v", spew.Sdump(sortedMatchingOrders))
+
 	// Pull orders up to when the quantity is filled or we run out of orders.
 	outputMatchingOrders := []*DAOCoinLimitOrderEntry{}
 	transactorOrderQuantityToFill := transactorOrder.QuantityToFillInBaseUnits.Clone()
@@ -1002,6 +1005,8 @@ func (bav *UtxoView) GetNextLimitOrdersToFill(
 			break
 		}
 	}
+
+	glog.Infof("SORTED: %v", spew.Sdump(outputMatchingOrders))
 
 	return outputMatchingOrders, nil
 }
