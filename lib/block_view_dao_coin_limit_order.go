@@ -419,7 +419,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 			// where we use whatever's left of the user's balance to fill the order.
 			if err = bav.IsValidDAOCoinLimitOrder(matchingOrder); err != nil {
 				bav._deleteDAOCoinLimitOrderEntryMappings(matchingOrder)
-				glog.Info("delete [not valid]: %s", matchingOrder.OrderID.String())
+				glog.Infof("DELETE [not valid %s]: %s", err, matchingOrder.OrderID.String())
 				limitOrders = append(limitOrders, matchingOrder)
 				continue
 			}
@@ -453,7 +453,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 				bav._deleteDAOCoinLimitOrderEntryMappings(matchingOrder)
 				sellerBalance := sellerBuyCoinBalanceBaseUnits.Bytes32()
 				coinBalance := coinBaseUnitsBoughtByTransactor.Bytes32()
-				glog.Info("delete [balance %s < %s]: %s", string(sellerBalance[:]), string(coinBalance[:]), matchingOrder.OrderID.String())
+				glog.Infof("DELETE [balance %s < %s]: %s", string(sellerBalance[:]), string(coinBalance[:]), matchingOrder.OrderID.String())
 				limitOrders = append(limitOrders, matchingOrder)
 				continue
 			}
@@ -533,7 +533,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 			if remainingUnitsToBuy.IsZero() || remainingUnitsToSell.IsZero() {
 				// Matching order was fulfilled. Mark for deletion.
 				bav._deleteDAOCoinLimitOrderEntryMappings(matchingOrder)
-				glog.Info("delete [zero]: %s", matchingOrder.OrderID.String())
+				glog.Infof("DELETE [zero]: %s", matchingOrder.OrderID.String())
 				matchingOrderFilledOrder.IsFulfilled = true
 			} else {
 				// Matching order is incomplete. Update remaining quantity to fill.
