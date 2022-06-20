@@ -398,7 +398,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 	// for now.
 	filledOrders := []*FilledDAOCoinLimitOrder{}
 	orderFilled := false
-	var utxoMapping map[string]bool
+	utxoMapping := make(map[string]bool)
 	for len(matchingOrders) > 0 {
 		for _, matchingOrder := range matchingOrders {
 			if _, exists := utxoMapping[string(matchingOrder.TransactorPKID[:])]; !exists {
@@ -410,7 +410,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 				}
 			}
 		}
-		
+
 		// 1-by-1 match existing orders to the transactor's order.
 		for _, matchingOrder := range matchingOrders {
 			prevMatchingOrders = append(prevMatchingOrders, matchingOrder.Copy())
