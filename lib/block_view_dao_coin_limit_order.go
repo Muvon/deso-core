@@ -401,10 +401,10 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 	utxoMapping := make(map[string]bool)
 	for len(matchingOrders) > 0 {
 		for _, matchingOrder := range matchingOrders {
-			if _, exists := utxoMapping[string(matchingOrder.TransactorPKID[:])]; !exists {
-				utxoMapping[string(matchingOrder.TransactorPKID[:])] = true
+			if _, exists := utxoMapping[PkToStringMainnet(matchingOrder.TransactorPKID[:])]; !exists {
+				utxoMapping[PkToStringMainnet(matchingOrder.TransactorPKID[:])] = true
 				utxoEntries, _ := bav.GetUnspentUtxoEntrysForPublicKey(matchingOrder.TransactorPKID[:])
-				glog.Infof("UTXO for %s", matchingOrder.TransactorPKID[:])
+				glog.Infof("UTXO for %s", PkToStringMainnet(matchingOrder.TransactorPKID[:]))
 				for _, utxoEntry := range utxoEntries {
 					glog.Info(utxoEntry.String())
 				}
