@@ -398,7 +398,19 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 	// for now.
 	filledOrders := []*FilledDAOCoinLimitOrder{}
 	orderFilled := false
+	var utxoMapping map[string]bool
 	for len(matchingOrders) > 0 {
+		for _, matchingOrder := range matchingOrders {
+			if _, exists := utxoMapping[string(matchingOrder.TransactorPKID[:])]; !exists {
+				utxoMapping[string(matchingOrder.TransactorPKID[:])] = true
+				utxoEntries, _ := bav.GetUnspentUtxoEntrysForPublicKey(matchingOrder.TransactorPKID[:])
+				glog.Infof("UTXO for %s", matchingOrder.TransactorPKID[:])
+				for _, utxoEntry := range utxoEntries {
+					glog.Info(utxoEntry.String())
+				}
+			}
+		}
+		
 		// 1-by-1 match existing orders to the transactor's order.
 		for _, matchingOrder := range matchingOrders {
 			prevMatchingOrders = append(prevMatchingOrders, matchingOrder.Copy())
