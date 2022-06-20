@@ -398,19 +398,7 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 	// for now.
 	filledOrders := []*FilledDAOCoinLimitOrder{}
 	orderFilled := false
-	utxoMapping := make(map[string]bool)
 	for len(matchingOrders) > 0 {
-		for _, matchingOrder := range matchingOrders {
-			if _, exists := utxoMapping[PkToStringMainnet(matchingOrder.TransactorPKID[:])]; !exists {
-				utxoMapping[PkToStringMainnet(matchingOrder.TransactorPKID[:])] = true
-				utxoEntries, _ := bav.GetUnspentUtxoEntrysForPublicKey(matchingOrder.TransactorPKID[:])
-				glog.Infof("UTXO for %s", PkToStringMainnet(matchingOrder.TransactorPKID[:]))
-				for _, utxoEntry := range utxoEntries {
-					glog.Info(utxoEntry.String())
-				}
-			}
-		}
-
 		// 1-by-1 match existing orders to the transactor's order.
 		for _, matchingOrder := range matchingOrders {
 			prevMatchingOrders = append(prevMatchingOrders, matchingOrder.Copy())
@@ -586,6 +574,18 @@ func (bav *UtxoView) _connectDAOCoinLimitOrder(
 		if err != nil {
 			return 0, 0, nil, errors.Wrapf(err,
 				"_connectDAOCoinLimitOrder: Error getting next set of orders to fill: ")
+		}
+	}
+
+	utxoMapping := make(map[string]bool)
+	for _, matchingOrder := range prevMatchingOrders {
+		if _, exists := utxoMapping[PkToStringMainnet(matchingOrder.TransactorPKID[:])]; !exists {
+			utxoMapping[PkToStringMainnet(matchingOrder.TransactorPKID[:])] = true
+			utxoEntries, _ := bav.GetUnspentUtxoEntrysForPublicKey(matchingOrder.TransactorPKID[:])
+			glog.Infof("UTXO for %s", PkToStringMainnet(matchingOrder.TransactorPKID[:]))
+			for _, utxoEntry := range utxoEntries {
+				glog.Info(utxoEntry.String())
+			}
 		}
 	}
 
